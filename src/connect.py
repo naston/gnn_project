@@ -5,6 +5,14 @@ import sys
 connection = None
 cursor = None
 
+def connect_imdb():
+    """Connect to IMDb dataset
+
+    Returns:
+        Cursor: Cursor for MariaDB
+    """
+    return connect('imdb_ijs')
+
 def connect_cora():
     """Connect to CORA dataset
 
