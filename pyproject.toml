@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "gnn-project"
+version = "0.1.0"
+description = ""
+authors = ["naston <nathan@planetpaull.com>"]
+license = "MIT License"
+readme = "README.md"
+packages = [{include = "gnn_project"}]
+
+[tool.poetry.dependencies]
+python = ">=3.11,<3.13"
+numpy = "^1.26.0"
+networkx = "^3.1"
+pandas = "^2.1.1"
+matplotlib = "^3.8.0"
+jupyter = "^1.0.0"
+mariadb = "^1.1.7"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
