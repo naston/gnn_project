@@ -11,8 +11,8 @@ def compute_loss(pos_score, neg_score):
 
 
 def compute_auc(pos_score, neg_score):
-    scores = torch.cat([pos_score, neg_score]).numpy()
+    scores = torch.cat([pos_score, neg_score]).detach().numpy()
     labels = torch.cat(
         [torch.ones(pos_score.shape[0]), torch.zeros(neg_score.shape[0])]
-    ).numpy()
+    ).detach().numpy()
     return roc_auc_score(labels, scores)

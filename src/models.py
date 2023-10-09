@@ -4,29 +4,33 @@ from dgl.utils import expand_as_pair
 import torch
 from torch import nn
 import torch.nn.functional as F
-
+import time
 
 class GraphSAGE(torch.nn.Module):
-    def __init__(self, in_feats, h_feats, agg='mean'):
+    def __init__(self, in_feats, h_feats, agg='mean', drop=0.0):
         super(GraphSAGE, self).__init__()
-        self.conv1 = SAGEConv(in_feats, h_feats, "mean")
-        self.conv2 = SAGEConv(h_feats, h_feats, "mean")
+        self.conv1 = SAGEConv(in_feats, h_feats, aggregator_type=agg)
+        self.conv2 = SAGEConv(h_feats, h_feats, aggregator_type=agg)
+        self.drop = drop
 
     def forward(self, g, in_feat):
         h = self.conv1(g, in_feat)
         h = F.relu(h)
+        h = F.dropout(h, p=self.drop, training=self.training)
         h = self.conv2(g, h)
         return h
     
 class GraphEVE(torch.nn.Module):
-    def __init__(self, in_feats, h_feats):
+    def __init__(self, in_feats, h_feats, drop=0.0):
         super(GraphEVE, self).__init__()
         self.conv1 = EVEConv(in_feats, h_feats)
         self.conv2 = EVEConv(h_feats, h_feats)
+        self.drop = drop
 
     def forward(self, g, in_feat):
         h = self.conv1(g, in_feat)
         h = F.relu(h)
+        h = F.dropout(h, p=self.drop, training=self.training)
         h = self.conv2(g, h)
         return h
 
@@ -79,7 +83,7 @@ class EVEConv(nn.Module):
         self.activation = activation
 
         self.fc_self = nn.Linear(self._in_dst_feats, out_feats, bias=False)
-        self.dw_conv = nn.Conv2d(2, 1, 1)
+        self.pw_conv = nn.Conv2d(2, 1, 1)
         self.relu = nn.ReLU()
         self.fc_eve = nn.Linear(self._in_src_feats, out_feats, bias=False)
 
@@ -91,12 +95,12 @@ class EVEConv(nn.Module):
             self.register_buffer('bias', None)
 
 
-        #self.reset_parameters()
+        self.reset_parameters()
 
     def reset_parameters(self):
         
         gain = nn.init.calculate_gain('relu')
-        nn.init.xavier_uniform_(self.fc_max.weight, gain=gain)
+        nn.init.xavier_uniform_(self.fc_eve.weight, gain=gain)
 
     def forward(self, graph, feat, edge_weight=None):
         
@@ -122,21 +126,37 @@ class EVEConv(nn.Module):
                     feat_dst.shape[0], self._in_src_feats).to(feat_dst)
 
             # Message Passing
+            #print('Timing:')
+            #t0 = time.time()
             graph.srcdata['h'] = F.relu(self.fc_pool(feat_src))
             graph.update_all(msg_fn, fn.max('m', 'max'))
             graph.update_all(msg_fn, fn.min('m', 'min'))
             
+            #t1 = time.time()
+            #print('\tUpdate:',t1-t0)
+
             x_max = graph.dstdata['max']
             x_min = graph.dstdata['min']
 
-            mxt = x_max.reshape(list(x_max.shape)+[1])
-            mnt = x_min.reshape(list(x_min.shape)+[1])
-            tt = torch.concat([mxt,mnt],dim=2)
-            
-            graph.dstdata['eve']=self.relu(self.dw_conv(tt.T).T)[:,:,0]
+            #t2 = time.time()
+            #print('\tPull:',t2-t1)
 
-            h_eve = self.fc_eve(graph.dstdata['eve'])
+            mxt = x_max.reshape([1]+list(x_max.shape))
+            mnt = x_min.reshape([1]+list(x_min.shape))
+            tt = torch.concat([mxt,mnt],dim=0)
+
+            #t3 = time.time()
+            #print('\tReshape:',t3-t2)
+            
+            eve=self.pw_conv(tt)[0,:,:]
+            #t4 = time.time()
+            #print('\tPWC:',t4-t3)
+
+            h_eve = self.fc_eve(eve)
             rst = self.fc_self(h_self) + h_eve
+            #t5 = time.time()
+            #print('\tFinal:',t5-t4)
+            #print('Time:',t5-t0)
 
             # bias term
             if self.bias is not None:

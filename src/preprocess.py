@@ -10,6 +10,11 @@ def remove_edges(G, edges):
     G_new.remove_edges_from(edges)
     return G_new
 
+def prepare_node_class(data):
+    G = to_networkx(data, node_attrs=data.node_attrs(), to_undirected=data.is_undirected())
+    train_g = dgl.from_networkx(G, node_attrs=list(G.nodes[0].keys()))
+    return train_g
+
 def create_train_test_split_edge(data):
     # Create a list of positive and negative edges
     u, v = data.edge_index.numpy()
