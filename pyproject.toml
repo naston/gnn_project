@@ -19,6 +19,8 @@ scipy = "^1.11.3"
 torch = "^2.1.0"
 torch-geometric = "^2.3.1"
 dgl = "^1.1.2.post1"
+retry = "^0.9.2"
+requests = "^2.31.0"
 
 
 [build-system]
