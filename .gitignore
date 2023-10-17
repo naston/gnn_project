@@ -166,3 +166,12 @@ cython_debug/
 *.csv
 *.png
 *.html
+*.pt
+*.graph
+*.ally
+*.allx
+*.tx
+*.ty
+*.x
+*.y
+*.index
