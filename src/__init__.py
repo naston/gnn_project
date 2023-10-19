@@ -4,4 +4,4 @@ from .models import GraphSAGE, DotPredictor, MLPPredictor, GraphEVE
 from .eval import compute_auc, compute_loss
 from .preprocess import create_train_test_split_edge, remove_edges, prepare_node_class
 from .train_model import train_link_pred
-from .results import run_edge_prediction, run_node_classification
+from .results import run_edge_prediction, run_node_classification, run_joint_train

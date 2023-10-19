@@ -64,6 +64,18 @@ class MLPPredictor(torch.nn.Module):
             # u_dot_v returns a 1-element vector for each edge so you need to squeeze it.
             return score.squeeze()
         
+class MLPClassifier(torch.nn.Module):
+    def __init__(self, in_feats, num_classes):
+        super().__init__()
+        self.linear1 = torch.nn.Linear(in_feats, 32)
+        self.linear2 = torch.nn.Linear(32, num_classes)
+
+    def forward(self, x):
+        x = self.linear1(x)
+        x = F.relu(x)
+        x = self.linear2(x)
+        # x = F.softmax(x) - Not needed when performing loss
+        return x
 
 class EVEConv(nn.Module):
     def __init__(self,

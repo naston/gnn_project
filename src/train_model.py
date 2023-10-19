@@ -3,7 +3,6 @@ import torch
 
 def train_link_pred(epochs, model, pred, optimizer, train_g, train_pos_g, train_neg_g, test_pos_g, test_neg_g):
     # ----------- 4. training -------------------------------- #
-    all_logits = []
     for e in range(epochs):
         # forward
         h = model(train_g, train_g.ndata["x"])
