@@ -174,7 +174,7 @@ def joint_train(epochs, embed_model, link_pred, class_pred, optimizer, criterion
             class_pred.eval()
             out = class_pred(h)
             pred = out.argmax(dim=1)
-            correct = pred[train_g.ndata['train_mask']] == train_g.ndata['y'][train_g.ndata['train_mask']]
+            correct = pred[train_g.ndata['test_mask']] == train_g.ndata['y'][train_g.ndata['test_mask']]
             acc = correct.sum() / len(correct)
 
 
