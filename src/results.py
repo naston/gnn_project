@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 from .eval import compute_auc, compute_loss
 from .preprocess import create_train_test_split_edge, prepare_node_class
-from .models import GraphEVE, GraphSAGE, DotPredictor, MLPClassifier
+from .models import GraphEVE, GraphSAGE, DotPredictor, MLPClassifier, GraphNSAGE
 
 def run_edge_prediction(dataset,runs):
     data = Planetoid(root='data/Planetoid', name=dataset, transform=NormalizeFeatures())
@@ -130,88 +130,111 @@ def train_edge_pred(epochs, model, pred, optimizer, train_g, train_pos_g, train_
     return np.max(aucs)
 
 
-def joint_train(epochs, embed_model, link_pred, class_pred, optimizer, criterion, train_g, train_pos_g, train_neg_g, test_pos_g, test_neg_g):
+def joint_train(epochs, models, predictors, optimizers, criterion, data):
     res = []
+    train_g, train_pos_g, train_neg_g, test_pos_g, test_neg_g = data
     
-    for e in range(epochs):
-        embed_model.train()
-        class_pred.train()
+    for e in range(500):
+        for m in models.values():
+            m.train()
 
         # Create embeddings and scores
-        h = embed_model(train_g, train_g.ndata['x']) 
-        pos_link_score = link_pred(train_pos_g, h)
-        neg_link_score = link_pred(train_neg_g, h)
-        class_logits = class_pred(h)
-
-        # classification_loss = criterion(class_logits, train_g.ndata['y'])
-        # edge_pred_loss = compute_loss(pos_link_score, neg_link_score)
+        h = models['embed'](train_g, train_g.ndata['x'])
+        h_link = models['link'](train_g, h)
+        h_class = models['class'](train_g, h)
+        class_logits = predictors['class'](h_class)
+        pos_link_score = predictors['link'](train_pos_g, h_link)
+        neg_link_score = predictors['link'](train_neg_g, h_link)
         
-        
-        # if optimizer_link is not None:
-        #     optimizer_link.zero_grad()
-        #     edge_pred_loss.backward()
-        #     optimizer_link.step()
 
-        # optimizer_class.zero_grad()
-        # classification_loss.backward()
-        # optimizer_class.step()
+        class_loss = criterion(class_logits[train_g.ndata['train_mask']], train_g.ndata['y'][train_g.ndata['train_mask']])
+        link_loss = compute_loss(pos_link_score, neg_link_score)
 
+        embed_loss = class_loss.clone() + link_loss.clone()
 
-        loss = compute_loss(pos_link_score, neg_link_score) + criterion(class_logits[train_g.ndata['train_mask']], train_g.ndata['y'][train_g.ndata['train_mask']])
+        optimizers['class'].zero_grad()
+        optimizers['link'].zero_grad()
+        optimizers['embed'].zero_grad()
 
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+        class_loss.backward(retain_graph=True)
+        link_loss.backward(retain_graph=True)
+        embed_loss.backward()
 
-        if (e+1) % 100 == 0:
-            h = embed_model(train_g, train_g.ndata['x'])
-            pos_link_score = link_pred(test_pos_g, h)
-            neg_link_score = link_pred(test_neg_g, h)
-            auc = compute_auc(pos_link_score, neg_link_score)
-
-            # Calculate test acc for node classification
-            embed_model.eval()
-            class_pred.eval()
-            out = class_pred(h)
-            pred = out.argmax(dim=1)
-            correct = pred[train_g.ndata['train_mask']] == train_g.ndata['y'][train_g.ndata['train_mask']]
-            acc = correct.sum() / len(correct)
+        optimizers['class'].step()
+        optimizers['link'].step()
+        optimizers['embed'].step()
 
 
-            res.append((e, auc, acc))
+    # Test Accuracy and AUC
+    # ===================================================
+    for m in models.values():
+        m.eval()
+    h = models['embed'](train_g, train_g.ndata['x'])
+    h_link = models['link'](train_g, h)
+    h_class = models['class'](train_g, h)
+    class_logits = predictors['class'](h_class)
+
+    pos_link_score = predictors['link'](test_pos_g, h_link)
+    neg_link_score = predictors['link'](test_neg_g, h_link)
+    auc = compute_auc(pos_link_score, neg_link_score)
+
+    pred = class_logits.argmax(dim=1)
+    correct = pred[train_g.ndata['test_mask']] == train_g.ndata['y'][train_g.ndata['test_mask']]
+    acc = correct.sum() / len(correct)
+
+    res.append((e, acc, auc))
 
     return res
 
 def run_joint_train(dataset, runs, epochs=500):
     data = Planetoid(root='data/Planetoid', name=dataset, transform=NormalizeFeatures())
 
-    train_g, train_pos_g, train_neg_g, test_pos_g, test_neg_g = create_train_test_split_edge(data[0])
-
+    train_data = create_train_test_split_edge(data[0])
 
     model_dict = {
-        'mean':[],
-        
-        'gcn':[],
+        #'eve':[],
+        #'mean':[],
+        #'gcn':[],
         #'lstm':[],
-        # 'eve':[],
-        #'pool':[],
+        'pool':[],
     }
     for model_name in model_dict:
         for _ in tqdm(range(runs)):
             if model_name == 'eve':
-                embed_model = GraphEVE(train_g.ndata["x"].shape[1], 32, drop=0.5)
+                embed_model = GraphEVE(train_data[0].ndata["x"].shape[1], 32, drop=0.5)
+                link_model = GraphNSAGE(32, 32, agg='mean', drop=0.5)
+                class_model = GraphNSAGE(32, 32, agg='mean', drop=0.5)
             else:
-                embed_model = GraphSAGE(train_g.ndata["x"].shape[1], 32, agg=model_name, drop=0.5)
+                embed_model = GraphNSAGE(train_data[0].ndata["x"].shape[1], 32, agg=model_name, drop=0.5)
+                link_model = GraphNSAGE(32, 32, agg=model_name, drop=0.5)
+                class_model = GraphNSAGE(32, 32, agg=model_name, drop=0.5)
+
             link_pred = DotPredictor()
             class_pred = MLPClassifier(32, data.num_classes)
             
-            #optimizer_base = torch.optim.Adam(embed_model.parameters(), lr=0.01, weight_decay=5e-4)
-            #optimizer_class = torch.optim.Adam(class_pred.parameters(), lr=0.01, weight_decay=5e-4)
-            #optimizer_link = None #torch.optim.Adam(link_pred.parameters(), lr=0.01, weight_decay=5e-4)
-            optimizer = torch.optim.Adam(itertools.chain(embed_model.parameters(), class_pred.parameters()), lr=0.01, weight_decay=5e-4)
+            optimizer_base = torch.optim.Adam(embed_model.parameters(), lr=0.01, weight_decay=5e-4)
+            optimizer_class = torch.optim.Adam(itertools.chain(class_model.parameters(), class_pred.parameters()), lr=0.01, weight_decay=5e-4)
+            optimizer_link =torch.optim.Adam(itertools.chain(link_model.parameters(), link_pred.parameters()), lr=0.01, weight_decay=5e-4)
             criterion = torch.nn.CrossEntropyLoss()
 
-            res = joint_train(epochs, embed_model, link_pred, class_pred, optimizer, criterion, train_g, train_pos_g, train_neg_g, test_pos_g, test_neg_g)
+            models = {
+                'embed': embed_model,
+                'link': link_model,
+                'class': class_model
+            }
+
+            predictors = {
+                'link':link_pred,
+                'class':class_pred
+            }
+
+            optimizers = {
+                'embed':optimizer_base,
+                'link':optimizer_link,
+                'class':optimizer_class
+            }
+
+            res = joint_train(epochs, models, predictors, optimizers, criterion, train_data)
             model_dict[model_name].append(res)
     return model_dict
 

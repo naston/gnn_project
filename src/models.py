@@ -20,6 +20,23 @@ class GraphSAGE(torch.nn.Module):
         h = self.conv2(g, h)
         return h
     
+class GraphNSAGE(torch.nn.Module):
+    def __init__(self, *nfeats, agg='mean', drop=0.0):
+        super(GraphNSAGE, self).__init__()
+        self.convs = nn.ModuleList([])
+        for i in range(len(nfeats)-1):
+            self.convs.append(SAGEConv(nfeats[i], nfeats[i+1], aggregator_type=agg))
+        self.drop = drop
+
+    def forward(self, g, h):
+        for i, c in enumerate(self.convs):
+            h = c(g, h)
+            if i+1 == len(self.convs):
+                break
+            h = F.relu(h)
+            h = F.dropout(h, p=self.drop, training=self.training)
+        return h
+    
 class GraphEVE(torch.nn.Module):
     def __init__(self, in_feats, h_feats, drop=0.0):
         super(GraphEVE, self).__init__()
