@@ -31,8 +31,8 @@ class GraphNSAGE(torch.nn.Module):
     def forward(self, g, h):
         for i, c in enumerate(self.convs):
             h = c(g, h)
-            if i+1 == len(self.convs):
-                break
+            # if i+1 == len(self.convs):
+            #     break
             h = F.relu(h)
             h = F.dropout(h, p=self.drop, training=self.training)
         return h

@@ -130,11 +130,13 @@ def train_edge_pred(epochs, model, pred, optimizer, train_g, train_pos_g, train_
     return np.max(aucs)
 
 
-def joint_train(epochs, models, predictors, optimizers, criterion, data):
+def joint_train(epochs, models, predictors, optimizers, criterion, data, lamb):
+    if lamb is None:
+        lamb = lambda x, y: 0.5
     res = []
     train_g, train_pos_g, train_neg_g, test_pos_g, test_neg_g = data
     
-    for e in range(500):
+    for e in range(epochs):
         for m in models.values():
             m.train()
 
@@ -150,7 +152,9 @@ def joint_train(epochs, models, predictors, optimizers, criterion, data):
         class_loss = criterion(class_logits[train_g.ndata['train_mask']], train_g.ndata['y'][train_g.ndata['train_mask']])
         link_loss = compute_loss(pos_link_score, neg_link_score)
 
-        embed_loss = class_loss.clone() + link_loss.clone()
+        # Control parameter for the loss here
+        l = lamb(len(class_logits), len(pos_link_score) + len(neg_link_score))
+        embed_loss = (l * class_loss.clone() + (1 - l) * link_loss.clone()) * 2 # Added a * 2 to make the loss have the same weight relative to other losses as before
 
         optimizers['class'].zero_grad()
         optimizers['link'].zero_grad()
@@ -186,15 +190,15 @@ def joint_train(epochs, models, predictors, optimizers, criterion, data):
 
     return res
 
-def run_joint_train(dataset, runs, epochs=500):
+def run_joint_train(dataset, runs, epochs=500, lamb=None):
     data = Planetoid(root='data/Planetoid', name=dataset, transform=NormalizeFeatures())
 
     train_data = create_train_test_split_edge(data[0])
 
     model_dict = {
-        #'eve':[],
-        #'mean':[],
-        #'gcn':[],
+        'eve':[],
+        'mean':[],
+        'gcn':[],
         #'lstm':[],
         'pool':[],
     }
@@ -234,7 +238,7 @@ def run_joint_train(dataset, runs, epochs=500):
                 'class':optimizer_class
             }
 
-            res = joint_train(epochs, models, predictors, optimizers, criterion, train_data)
+            res = joint_train(epochs, models, predictors, optimizers, criterion, train_data, lamb)
             model_dict[model_name].append(res)
     return model_dict
 
