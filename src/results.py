@@ -212,9 +212,16 @@ def run_joint_train(dataset, runs, epochs=500, lamb=None):
                 embed_model = GraphNSAGE(train_data[0].ndata["x"].shape[1], 32, agg=model_name, drop=0.5)
                 link_model = GraphNSAGE(32, 32, agg=model_name, drop=0.5)
                 class_model = GraphNSAGE(32, 32, agg=model_name, drop=0.5)
-
+            
             link_pred = DotPredictor()
             class_pred = MLPClassifier(32, data.num_classes)
+
+            if torch.cuda.is_available():
+                embed_model.cuda()
+                link_model.cuda()
+                class_model.cuda()
+                class_pred.cuda()
+                link_pred.cuda()
             
             optimizer_base = torch.optim.Adam(embed_model.parameters(), lr=0.01, weight_decay=5e-4)
             optimizer_class = torch.optim.Adam(itertools.chain(class_model.parameters(), class_pred.parameters()), lr=0.01, weight_decay=5e-4)

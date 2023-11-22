@@ -53,4 +53,10 @@ def create_train_test_split_edge(data):
     test_pos_g = dgl.graph((test_pos_u, test_pos_v), num_nodes=data.num_nodes)
     test_neg_g = dgl.graph((test_neg_u, test_neg_v), num_nodes=data.num_nodes)
 
+    train_g = train_g.to('cuda:0')
+    train_pos_g = train_pos_g.to('cuda:0')
+    train_neg_g = train_neg_g.to('cuda:0')
+    test_pos_g = test_pos_g.to('cuda:0')
+    test_neg_g = test_neg_g.to('cuda:0')
+    
     return train_g, train_pos_g, train_neg_g, test_pos_g, test_neg_g
