@@ -21,7 +21,7 @@ class GraphSAGE(torch.nn.Module):
         return h
     
 class GraphNSAGE(torch.nn.Module):
-    def __init__(self, *nfeats, agg='mean', drop=0.0):
+    def __init__(self, *nfeats, agg='mean', drop=None):
         super(GraphNSAGE, self).__init__()
         self.convs = nn.ModuleList([])
         for i in range(len(nfeats)-1):
@@ -31,10 +31,9 @@ class GraphNSAGE(torch.nn.Module):
     def forward(self, g, h):
         for i, c in enumerate(self.convs):
             h = c(g, h)
-            # if i+1 == len(self.convs):
-            #     break
-            h = F.relu(h)
-            h = F.dropout(h, p=self.drop, training=self.training)
+            # if self.drop is not None:
+            #     h = F.relu(h)
+            #     h = F.dropout(h, p=self.drop, training=self.training)
         return h
     
 class GraphEVE(torch.nn.Module):

@@ -148,12 +148,12 @@ def joint_train(epochs, models, predictors, optimizers, criterion, data, lamb):
         pos_link_score = predictors['link'](train_pos_g, h_link)
         neg_link_score = predictors['link'](train_neg_g, h_link)
         
+        l = lamb(len(class_logits), len(pos_link_score) + len(neg_link_score))
 
         class_loss = criterion(class_logits[train_g.ndata['train_mask']], train_g.ndata['y'][train_g.ndata['train_mask']])
         link_loss = compute_loss(pos_link_score, neg_link_score)
 
         # Control parameter for the loss here
-        l = lamb(len(class_logits), len(pos_link_score) + len(neg_link_score))
         embed_loss = (l * class_loss.clone() + (1 - l) * link_loss.clone()) * 2 # Added a * 2 to make the loss have the same weight relative to other losses as before
 
         optimizers['class'].zero_grad()
@@ -206,12 +206,12 @@ def run_joint_train(dataset, runs, epochs=500, lamb=None):
         for _ in tqdm(range(runs)):
             if model_name == 'eve':
                 embed_model = GraphEVE(train_data[0].ndata["x"].shape[1], 32, drop=0.5)
-                link_model = GraphNSAGE(32, 32, agg='mean', drop=0.5)
-                class_model = GraphNSAGE(32, 32, agg='mean', drop=0.5)
+                link_model = GraphNSAGE(32, 32, agg='mean', drop=None)
+                class_model = GraphNSAGE(32, 32, agg='mean', drop=None)
             else:
                 embed_model = GraphNSAGE(train_data[0].ndata["x"].shape[1], 32, agg=model_name, drop=0.5)
-                link_model = GraphNSAGE(32, 32, agg=model_name, drop=0.5)
-                class_model = GraphNSAGE(32, 32, agg=model_name, drop=0.5)
+                link_model = GraphNSAGE(32, 32, agg=model_name, drop=None)
+                class_model = GraphNSAGE(32, 32, agg=model_name, drop=None)
             
             link_pred = DotPredictor()
             class_pred = MLPClassifier(32, data.num_classes)
