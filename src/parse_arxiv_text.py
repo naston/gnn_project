@@ -3,6 +3,10 @@ import torch_geometric.transforms as T
 import torch
 import pandas as pd
 
+"""
+Code here allows us to gather abstract text in the same order as nodes in the ogbn-arxiv dataset.
+This text is used to create LM embeddings.
+"""
 
 def get_raw_text_arxiv(use_text=False, seed=0):
 

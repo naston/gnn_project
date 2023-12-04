@@ -4,6 +4,12 @@ import numpy as np
 from transformers import PreTrainedModel
 from transformers.modeling_outputs import TokenClassifierOutput
 
+"""
+Base code comes from https://github.com/XiaoxinHe/TAPE.
+Code here is used to create a BERT LM for feature embedding. 
+The LM is fine-tuned using the node classification task.
+"""
+
 def init_random_state(seed=0):
     # Libraries using GPU should be imported after specifying GPU-ID
     import torch

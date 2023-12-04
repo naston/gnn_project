@@ -2,6 +2,10 @@ import os
 import argparse
 from yacs.config import CfgNode as CN
 
+"""
+Base code comes from https://github.com/XiaoxinHe/TAPE.
+Code here is used to store hyperparameters for fine-tuning a BERT LM.
+"""
 
 def set_cfg(cfg):
 

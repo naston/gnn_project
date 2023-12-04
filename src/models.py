@@ -37,6 +37,9 @@ class GraphNSAGE(torch.nn.Module):
         return h
 
 class GraphEVE(torch.nn.Module):
+    """
+    This is the GraphEVE architecture, consisting of 2 EVE convs.
+    """
     def __init__(self, in_feats, h_feats, drop=0.0):
         super(GraphEVE, self).__init__()
         self.conv1 = EVEConv(in_feats, h_feats)
@@ -51,6 +54,7 @@ class GraphEVE(torch.nn.Module):
         return h
     
 class GraphIEVE(torch.nn.Module):
+    """ DEPRECATED """
     def __init__(self, in_feats, h_feats, drop=0.0):
         super(GraphIEVE, self).__init__()
         self.conv1 = IEVEConv(in_feats, h_feats)
@@ -107,6 +111,10 @@ class MLPClassifier(torch.nn.Module):
         return x
 
 class EVEConv(nn.Module):
+    """
+    This is the EVEConv class. The basis of this model is that both max-pool and min-pool are done on all incoming messages, creating 2 input channels. 
+    A pointwise convolution is done over these channels and then a FC layer is used after for final output.
+    """
     def __init__(self,
                  in_feats,
                  out_feats,
@@ -167,41 +175,24 @@ class EVEConv(nn.Module):
                 graph.dstdata['max'] = torch.zeros(
                     feat_dst.shape[0], self._in_src_feats).to(feat_dst)
 
-            # Message Passing
-            #print('Timing:')
-            #t0 = time.time()
+            # Message Passing (Max-pool and Min-pool)
             graph.srcdata['h'] = F.relu(self.fc_pool(feat_src))
             graph.update_all(msg_fn, fn.max('m', 'max'))
             graph.update_all(msg_fn, fn.min('m', 'min'))
-            
-            #t1 = time.time()
-            #print('\tUpdate:',t1-t0)
 
             x_max = graph.dstdata['max']
             x_min = graph.dstdata['min']
 
-            #t2 = time.time()
-            #print('\tPull:',t2-t1)
-
             mxt = x_max.reshape([1]+list(x_max.shape))
             mnt = x_min.reshape([1]+list(x_min.shape))
             tt = torch.concat([mxt,mnt],dim=0)
-
-            #t3 = time.time()
-            #print('\tReshape:',t3-t2)
             
+            # Taking the PW Conv of 2 input channels
             eve=torch.squeeze(self.pw_conv(tt))
 
-            #print(eve.shape)
-
-            #t4 = time.time()
-            #print('\tPWC:',t4-t3)
-
+            # Generate final output using FC layer
             h_eve = self.fc_eve(self.drop(eve))
             rst = self.fc_self(h_self) + h_eve
-            #t5 = time.time()
-            #print('\tFinal:',t5-t4)
-            #print('Time:',t5-t0)
 
             # bias term
             if self.bias is not None:
@@ -213,10 +204,10 @@ class EVEConv(nn.Module):
             # normalization
             if self.norm is not None:
                 rst = self.norm(rst)
-            #print(rst.shape)
             return rst
         
 class IEVEConv(nn.Module):
+    """ DEPRECATED """
     def __init__(self,
                  in_feats,
                  out_feats,

@@ -17,8 +17,15 @@ from sklearn.decomposition import PCA
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+"""
+This file is for generating results for node classification, link prediction, and joint training with parameters for embedding, dataset, and other model parameters.    
+"""
+
 
 def load_data(dataset):
+    """
+    Loads datasets according to TAPE paper so that embeddings created are properly ordered.
+    """
     if dataset=='Cora':
         data,_ = get_raw_text_cora(use_text=False)
     elif dataset=='PubMed':
@@ -30,6 +37,18 @@ def load_data(dataset):
     return data
 
 def run_edge_prediction(dataset,runs, features='default', reg=0, pca=False):
+    """Parent function for link prediction task. Will run the experiment multiple times with various GNN architectures (SAGE and EVE).
+
+    Args:
+        dataset (str): One of CORA, PubMed, ogbn
+        runs (int): number of task runs for each model architecture
+        features (str, optional): feature embeddings to be used at nodes. Defaults to 'default'.
+        reg (int, optional): regularization to be applied to EVE pw_conv. Defaults to 0.
+        pca (bool, optional): if PCA should be used on node features. Defaults to False.
+
+    Returns:
+        dict: dictionary containing the results of each run for each model. Hyperparameters recorded as well.
+    """
     print('Running on:',device)
     
     if dataset=='ogbn':
@@ -106,6 +125,18 @@ def run_edge_prediction(dataset,runs, features='default', reg=0, pca=False):
 
 
 def run_node_classification(dataset,runs,features='default', reg=0, pca=False):
+    """Parent function for node classification task. Will run the experiment multiple times with various GNN architectures (SAGE and EVE).
+
+    Args:
+        dataset (str): One of CORA, PubMed, ogbn
+        runs (int): number of task runs for each model architecture
+        features (str, optional): feature embeddings to be used at nodes. Defaults to 'default'.
+        reg (int, optional): regularization to be applied to EVE pw_conv. Defaults to 0.
+        pca (bool, optional): if PCA should be used on node features. Defaults to False.
+
+    Returns:
+        dict: dictionary containing the results of each run for each model. Hyperparameters recorded as well.
+    """
     print('Running on:',device)
     
     if dataset=='ogbn':
@@ -177,6 +208,115 @@ def run_node_classification(dataset,runs,features='default', reg=0, pca=False):
             #g.ndata["feat"].shape[1], 16, dataset.num_classes
     return model_dict
 
+def run_joint_train(dataset, features, runs, epochs=500, lamb=None):
+    """Parent function for joint training task. Will run the experiment multiple times with various GNN architectures (SAGE and EVE).
+
+    Args:
+        dataset (str): One of CORA, PubMed, ogbn
+        runs (int): number of task runs for each model architecture
+        features (str, optional): feature embeddings to be used at nodes. Defaults to 'default'.
+        reg (int, optional): regularization to be applied to EVE pw_conv. Defaults to 0.
+        pca (bool, optional): if PCA should be used on node features. Defaults to False.
+
+    Returns:
+        dict: dictionary containing the results of each run for each model. Hyperparameters recorded as well.
+    """
+    #data = Planetoid(root='data/Planetoid', name=dataset, transform=NormalizeFeatures())
+
+    data = Planetoid(root='data/Planetoid', name=dataset, transform=NormalizeFeatures())
+    num_classes = data.num_classes
+    data = data[0]
+    if features=='LM':
+        data=load_data(dataset)
+        feats = np.loadtxt(f'LM_embed_{dataset}.txt')
+        #if pca:
+        #    feats = PCA().fit_transform(feats)
+        data['x']=torch.tensor(feats)
+    elif features=='TAPE':
+        data=load_data(dataset)
+        feats = np.loadtxt(f'TAPE_embed_{dataset}.txt')
+        #if pca:
+        #    feats = PCA().fit_transform(feats)
+        #    feats = transform.fit_transform(feats)
+        data['x']=torch.tensor(feats)
+
+    train_g, train_pos_g, train_neg_g, test_pos_g, test_neg_g = create_train_test_split_edge(data)
+    
+    train_g=train_g.to(device)
+    train_pos_g=train_pos_g.to(device)
+    train_neg_g=train_neg_g.to(device)
+    test_pos_g=test_pos_g.to(device)
+    test_neg_g=test_neg_g.to(device)
+
+    train_data = (train_g, train_pos_g, train_neg_g, test_pos_g, test_neg_g)
+    model_dict = {
+        'eve_node':[],
+        'mean_node':[],
+        'gcn_node':[],
+        #'lstm':[],
+        'pool_node':[],
+        'eve_edge':[],
+        'mean_edge':[],
+        'gcn_edge':[],
+        #'lstm':[],
+        'pool_edge':[],
+    }
+    models = ['eve','mean','gcn','pool']
+
+    for model_name in models:
+        for _ in tqdm(range(runs)):
+            if model_name == 'eve':
+                embed_model = GraphEVE(train_data[0].ndata["x"].shape[1], 32, drop=0.5)
+                link_model = GraphNSAGE(32, 32, agg='mean', drop=None)
+                class_model = GraphNSAGE(32, 32, agg='mean', drop=None)
+            else:
+                embed_model = GraphNSAGE(train_data[0].ndata["x"].shape[1], 32, agg=model_name, drop=0.5)
+                link_model = GraphNSAGE(32, 32, agg=model_name, drop=None)
+                class_model = GraphNSAGE(32, 32, agg=model_name, drop=None)
+            
+            link_pred = DotPredictor()
+            class_pred = MLPClassifier(32, num_classes)
+
+            if torch.cuda.is_available():
+                embed_model.cuda()
+                link_model.cuda()
+                class_model.cuda()
+                class_pred.cuda()
+                link_pred.cuda()
+            
+            optimizer_base = torch.optim.Adam(embed_model.parameters(), lr=0.01, weight_decay=5e-4)
+            optimizer_class = torch.optim.Adam(itertools.chain(class_model.parameters(), class_pred.parameters()), lr=0.01, weight_decay=5e-4)
+            optimizer_link =torch.optim.Adam(itertools.chain(link_model.parameters(), link_pred.parameters()), lr=0.01, weight_decay=5e-4)
+            criterion = torch.nn.CrossEntropyLoss()
+
+            models = {
+                'embed': embed_model,
+                'link': link_model,
+                'class': class_model
+            }
+
+            predictors = {
+                'link':link_pred,
+                'class':class_pred
+            }
+
+            optimizers = {
+                'embed':optimizer_base,
+                'link':optimizer_link,
+                'class':optimizer_class
+            }
+
+            res = joint_train(epochs, models, predictors, optimizers, criterion, train_data, lamb)
+            res = np.array(res)
+            res = np.max(res, axis=0)
+
+            model_dict[model_name+'_node'].append(res[2])
+            model_dict[model_name+'_edge'].append(res[1])
+    return model_dict
+
+"""
+All code below here are helper functions that handle individual epochs and/or individual model architectures. These are called by the functions above.
+"""
 
 def train_node_class(epochs, model, optimizer, criterion, g, reg=0):
     accs = []
@@ -307,96 +447,3 @@ def joint_train(epochs, models, predictors, optimizers, criterion, data, lamb):
 
     return res
 
-def run_joint_train(dataset, features, runs, epochs=500, lamb=None):
-    #data = Planetoid(root='data/Planetoid', name=dataset, transform=NormalizeFeatures())
-
-    data = Planetoid(root='data/Planetoid', name=dataset, transform=NormalizeFeatures())
-    num_classes = data.num_classes
-    data = data[0]
-    if features=='LM':
-        data=load_data(dataset)
-        feats = np.loadtxt(f'LM_embed_{dataset}.txt')
-        #if pca:
-        #    feats = PCA().fit_transform(feats)
-        data['x']=torch.tensor(feats)
-    elif features=='TAPE':
-        data=load_data(dataset)
-        feats = np.loadtxt(f'TAPE_embed_{dataset}.txt')
-        #if pca:
-        #    feats = PCA().fit_transform(feats)
-        #    feats = transform.fit_transform(feats)
-        data['x']=torch.tensor(feats)
-
-    train_g, train_pos_g, train_neg_g, test_pos_g, test_neg_g = create_train_test_split_edge(data)
-    
-    train_g=train_g.to(device)
-    train_pos_g=train_pos_g.to(device)
-    train_neg_g=train_neg_g.to(device)
-    test_pos_g=test_pos_g.to(device)
-    test_neg_g=test_neg_g.to(device)
-
-    train_data = (train_g, train_pos_g, train_neg_g, test_pos_g, test_neg_g)
-    model_dict = {
-        'eve_node':[],
-        'mean_node':[],
-        'gcn_node':[],
-        #'lstm':[],
-        'pool_node':[],
-        'eve_edge':[],
-        'mean_edge':[],
-        'gcn_edge':[],
-        #'lstm':[],
-        'pool_edge':[],
-    }
-    models = ['eve','mean','gcn','pool']
-
-    for model_name in models:
-        for _ in tqdm(range(runs)):
-            if model_name == 'eve':
-                embed_model = GraphEVE(train_data[0].ndata["x"].shape[1], 32, drop=0.5)
-                link_model = GraphNSAGE(32, 32, agg='mean', drop=None)
-                class_model = GraphNSAGE(32, 32, agg='mean', drop=None)
-            else:
-                embed_model = GraphNSAGE(train_data[0].ndata["x"].shape[1], 32, agg=model_name, drop=0.5)
-                link_model = GraphNSAGE(32, 32, agg=model_name, drop=None)
-                class_model = GraphNSAGE(32, 32, agg=model_name, drop=None)
-            
-            link_pred = DotPredictor()
-            class_pred = MLPClassifier(32, num_classes)
-
-            if torch.cuda.is_available():
-                embed_model.cuda()
-                link_model.cuda()
-                class_model.cuda()
-                class_pred.cuda()
-                link_pred.cuda()
-            
-            optimizer_base = torch.optim.Adam(embed_model.parameters(), lr=0.01, weight_decay=5e-4)
-            optimizer_class = torch.optim.Adam(itertools.chain(class_model.parameters(), class_pred.parameters()), lr=0.01, weight_decay=5e-4)
-            optimizer_link =torch.optim.Adam(itertools.chain(link_model.parameters(), link_pred.parameters()), lr=0.01, weight_decay=5e-4)
-            criterion = torch.nn.CrossEntropyLoss()
-
-            models = {
-                'embed': embed_model,
-                'link': link_model,
-                'class': class_model
-            }
-
-            predictors = {
-                'link':link_pred,
-                'class':class_pred
-            }
-
-            optimizers = {
-                'embed':optimizer_base,
-                'link':optimizer_link,
-                'class':optimizer_class
-            }
-
-            res = joint_train(epochs, models, predictors, optimizers, criterion, train_data, lamb)
-            res = np.array(res)
-            res = np.max(res, axis=0)
-
-            model_dict[model_name+'_node'].append(res[2])
-            model_dict[model_name+'_edge'].append(res[1])
-    return model_dict

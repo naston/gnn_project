@@ -14,6 +14,12 @@ from .parse_pubmed_text import get_raw_text_pubmed
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+"""
+Base code comes from https://github.com/XiaoxinHe/TAPE.
+Code here is used to fine-tune a BERT LM for feature embedding. 
+The LM is fine-tuned using the node classification task.
+"""
+
 class Evaluator:
     def __init__(self, name):
         self.name = name

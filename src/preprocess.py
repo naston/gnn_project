@@ -5,17 +5,30 @@ import networkx as nx
 from torch_geometric.utils import to_networkx
 import dgl
 
+"""
+This code is used to preprocess graph data before training.
+"""
+
 def remove_edges(G, edges):
+    """
+    Removes edges from graph. Used in creation of link prediction data splits.
+    """
     G_new = deepcopy(G)
     G_new.remove_edges_from(edges)
     return G_new
 
 def prepare_node_class(data):
+    """
+    Converts planetoid dataset to a usable format for dgl based models.
+    """
     G = to_networkx(data, node_attrs=data.node_attrs(), to_undirected=data.is_undirected())
     train_g = dgl.from_networkx(G, node_attrs=list(G.nodes[0].keys()))
     return train_g
 
 def create_train_test_split_edge(data):
+    """
+    Creates a training and a testing set for the link prediction task.
+    """
     # Create a list of positive and negative edges
     u, v = data.edge_index.numpy()
 

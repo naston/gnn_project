@@ -2,6 +2,10 @@
 import mariadb
 import sys
 
+"""
+DEPRECATED, was used to connect to databases and download data during M1 but was quickly phased out.
+"""
+
 connection = None
 cursor = None
 

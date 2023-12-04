@@ -9,7 +9,10 @@ import json
 import pandas as pd
 
 # return pubmed dataset as pytorch geometric Data object together with 60/20/20 split, and list of pubmed IDs
-
+"""
+Code here allows us to gather abstract text in the same order as nodes in the PubMed dataset.
+This text is used to create LM embeddings.
+"""
 
 def get_pubmed_casestudy(corrected=False, SEED=0):
     _, data_X, data_Y, data_pubid, data_edges = parse_pubmed()

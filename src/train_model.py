@@ -1,6 +1,10 @@
 from .eval import compute_loss, compute_auc
 import torch
 
+"""
+DEPRECATED in favor of results.py
+"""
+
 def train_link_pred(epochs, model, pred, optimizer, train_g, train_pos_g, train_neg_g, test_pos_g, test_neg_g, reg=0):
     # ----------- 4. training -------------------------------- #
     all_logits = []

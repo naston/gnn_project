@@ -4,6 +4,11 @@ from torch.utils.data import Dataset as TorchDataset
 
 # convert PyG dataset to DGL dataset
 
+"""
+Base code comes from https://github.com/XiaoxinHe/TAPE.
+Code here is used to create a fine-tune dataset for a BERT LM model. 
+The dataset is created using the node classification task.
+"""
 
 class CustomDGLDataset(TorchDataset):
     def __init__(self, name, pyg_data):

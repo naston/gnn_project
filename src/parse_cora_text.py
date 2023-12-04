@@ -10,7 +10,10 @@ from torch_geometric.transforms import NormalizeFeatures
 
 
 # return cora dataset as pytorch geometric Data object together with 60/20/20 split, and list of cora IDs
-
+"""
+Code here allows us to gather abstract text in the same order as nodes in the Cora dataset.
+This text is used to create LM embeddings.
+"""
 
 def get_cora_casestudy(SEED=0):
     data_X, data_Y, data_citeid, data_edges = parse_cora()
