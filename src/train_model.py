@@ -1,7 +1,7 @@
 from .eval import compute_loss, compute_auc
 import torch
 
-def train_link_pred(epochs, model, pred, optimizer, train_g, train_pos_g, train_neg_g, test_pos_g, test_neg_g):
+def train_link_pred(epochs, model, pred, optimizer, train_g, train_pos_g, train_neg_g, test_pos_g, test_neg_g, reg=0):
     # ----------- 4. training -------------------------------- #
     all_logits = []
     for e in range(epochs):
@@ -9,7 +9,11 @@ def train_link_pred(epochs, model, pred, optimizer, train_g, train_pos_g, train_
         h = model(train_g, train_g.ndata["x"])
         pos_score = pred(train_pos_g, h)
         neg_score = pred(train_neg_g, h)
+        #print(pos_score.device,neg_score.device)
         loss = compute_loss(pos_score, neg_score)
+        if reg>0:
+            loss+= reg*torch.norm(list(model.conv1.pw_conv.parameters())[0].data - 0.5)
+            loss+= reg*torch.norm(list(model.conv2.pw_conv.parameters())[0].data - 0.5)
 
         # backward
         optimizer.zero_grad()

@@ -2,6 +2,7 @@ import numpy as np
 import torch
 import random
 import os
+import json
 
 from torch_geometric.datasets import Planetoid
 import torch_geometric.transforms as T
@@ -55,7 +56,7 @@ def get_cora_casestudy(SEED=0):
 
 
 def parse_cora():
-    path = './data/CORA_raw/Cora/cora'
+    path = './data/Cora/cora'
     idx_features_labels = np.genfromtxt(
         "{}.content".format(path), dtype=np.dtype(str))
     data_X = idx_features_labels[:, 1:-1].astype(np.float32)
@@ -79,7 +80,7 @@ def get_raw_text_cora(use_text=False, seed=0):
     if not use_text:
         return data, None
 
-    with open('./data/CORA_raw/Cora/mccallum/cora/papers')as f:
+    with open('./data/Cora/mccallum/cora/papers')as f:
         lines = f.readlines()
     pid_filename = {}
     for line in lines:
@@ -87,7 +88,7 @@ def get_raw_text_cora(use_text=False, seed=0):
         fn = line.split('\t')[1]
         pid_filename[pid] = fn
 
-    path = './data/CORA_raw/Cora/mccallum/cora/extractions/'
+    path = './data/Cora/mccallum/cora/extractions/'
     text = []
     counter=0
     for pid in data_citeid:
@@ -109,5 +110,31 @@ def get_raw_text_cora(use_text=False, seed=0):
         else:
             counter+=1
             text.append(ti)
-    print(counter)
+    #print(counter)
     return data, text
+"""
+def get_gpt_text_cora(seed=0):
+    data, data_citeid = get_cora_casestudy(seed)
+
+    with open('./data/Cora/mccallum/cora/papers')as f:
+        lines = f.readlines()
+    pid_filename = {}
+    for line in lines:
+        pid = line.split('\t')[0]
+        fn = line.split('\t')[1]
+        pid_filename[pid] = fn
+
+    path = './data/Cora/mccallum/cora/extractions/'
+    text = []
+    counter=0
+    
+    for pid in data_citeid:
+        
+
+        with open('./data/Cora_TAPE/'+data_citeid) as f:
+            data = json.load(f)
+            text.append(data['choices'][0]['message']['content'])
+        f.close()
+    #print(counter)
+    return data, text
+"""

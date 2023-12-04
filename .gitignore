@@ -1,5 +1,9 @@
 **/data/*
 *.pdf
+**/dataset/*
+**/output/*
+**/prt_lm/*
+**/embeds/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
