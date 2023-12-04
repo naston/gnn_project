@@ -4,7 +4,14 @@ from sklearn.metrics import roc_auc_score
 
 def compute_loss(pos_score, neg_score):
     """
-    Loss metric for link prediction task
+    Calculate binary cross entropy loss for link prediction.
+    
+    Parameters:
+        - pos_score: torch.Tensor
+            A tensor of the scores for all edges within a positive graph.
+
+        - neg_score: torch.Tensor
+            A tensor of the scores for all edges within a negative graph.
     """
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
@@ -19,7 +26,14 @@ def compute_loss(pos_score, neg_score):
 
 def compute_auc(pos_score, neg_score):
     """
-    Loss metric for node classification task
+    Calculate ROC-AUC score for link prediction.
+
+    Parameters:
+        - pos_score: torch.Tensor
+            A tensor of the scores for all edges within a positive graph.
+
+        - neg_score: torch.Tensor
+            A tensor of the scores for all edges within a negative graph.
     """
     #device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
