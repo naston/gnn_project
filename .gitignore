@@ -1,3 +1,10 @@
+**/data/*
+*.pdf
+**/dataset/*
+**/output/*
+**/prt_lm/*
+**/embeds/*
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -163,3 +170,12 @@ cython_debug/
 *.csv
 *.png
 *.html
+*.pt
+*.graph
+*.ally
+*.allx
+*.tx
+*.ty
+*.x
+*.y
+*.index
