@@ -19,7 +19,7 @@ def remove_edges(G, edges):
 
 def prepare_node_class(data):
     """
-    Converts planetoid dataset to a usable format for dgl based models.
+    Converts Planetoid dataset to a usable format for dgl based models.
     """
     G = to_networkx(data, node_attrs=data.node_attrs(), to_undirected=data.is_undirected())
     train_g = dgl.from_networkx(G, node_attrs=list(G.nodes[0].keys()))
@@ -27,7 +27,7 @@ def prepare_node_class(data):
 
 def create_train_test_split_edge(data):
     """
-    Creates a training and a testing set for the link prediction task.
+    Create a split of 90% train data and 10% test data from a graph including a positive and a negative graph.
     """
     # Create a list of positive and negative edges
     u, v = data.edge_index.numpy()
