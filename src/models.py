@@ -7,6 +7,9 @@ import torch.nn.functional as F
 import time
 
 class GraphSAGE(torch.nn.Module):
+    """
+    A two layer GraphSAGE model for link prediction
+    """
     def __init__(self, in_feats, h_feats, agg='mean', drop=0.0):
         super(GraphSAGE, self).__init__()
         self.conv1 = SAGEConv(in_feats, h_feats, aggregator_type=agg)
@@ -21,6 +24,9 @@ class GraphSAGE(torch.nn.Module):
         return h
     
 class GraphNSAGE(torch.nn.Module):
+    """
+    An N-layer GraphSAGE model for link prediction
+    """
     def __init__(self, *nfeats, agg='mean', drop=None):
         super(GraphNSAGE, self).__init__()
         self.convs = nn.ModuleList([])
@@ -51,6 +57,10 @@ class GraphEVE(torch.nn.Module):
         return h
 
 class DotPredictor(torch.nn.Module):
+    """
+    A predictor which computes the dot product of embeddings along all edges in a graph
+    """
+
     def forward(self, g, h):
         with g.local_scope():
             g.ndata["h"] = h
@@ -62,6 +72,9 @@ class DotPredictor(torch.nn.Module):
         
 
 class MLPPredictor(torch.nn.Module):
+    """
+    A predictor which passes node embeddings through a 2 layer perceptron to create candidate scores for link prediction
+    """
     def __init__(self, in_feats):
         super().__init__()
         self.linear1 = torch.nn.Linear(in_feats, 32)
@@ -81,6 +94,9 @@ class MLPPredictor(torch.nn.Module):
             return score.squeeze()
         
 class MLPClassifier(torch.nn.Module):
+    """
+    A 2 layer MLP which transforms node embeddings to class logits
+    """
     def __init__(self, in_feats, num_classes):
         super().__init__()
         self.linear1 = torch.nn.Linear(in_feats, 32)
@@ -94,6 +110,9 @@ class MLPClassifier(torch.nn.Module):
         return x
 
 class EVEConv(nn.Module):
+    """
+    EVE Convolution block for taking the pointwise convolution of min and max for message passing and aggregation during node embedding creation.
+    """
     def __init__(self,
                  in_feats,
                  out_feats,

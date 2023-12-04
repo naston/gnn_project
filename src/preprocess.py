@@ -6,16 +6,23 @@ from torch_geometric.utils import to_networkx
 import dgl
 
 def remove_edges(G, edges):
+    """
+    Remove a subset of edges from a networkx graph, G
+    """
     G_new = deepcopy(G)
     G_new.remove_edges_from(edges)
     return G_new
 
 def prepare_node_class(data):
+    """
+    Prepare node classification by converting the Planetoid data structure to networkx
+    """
     G = to_networkx(data, node_attrs=data.node_attrs(), to_undirected=data.is_undirected())
     train_g = dgl.from_networkx(G, node_attrs=list(G.nodes[0].keys()))
     return train_g
 
 def create_train_test_split_edge(data):
+    """Create a split of 90% train data and 10% test data from a graph including a positive and a negative graph"""
     # Create a list of positive and negative edges
     u, v = data.edge_index.numpy()
 
